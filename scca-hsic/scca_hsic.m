@@ -1,4 +1,4 @@
-function [U,V,final_obj,tempobj,InterMediate] = scca_hsic(X,Y,hyperparams)
+function [U,V,obj] = scca_hsic(X,Y,varargin)
 
 % The SCCA-HSIC implementation using the projected stochastic mini-batch
 % gradient ascent.
@@ -8,18 +8,19 @@ function [U,V,final_obj,tempobj,InterMediate] = scca_hsic(X,Y,hyperparams)
 % Y             n x dy data matrix
 %
 % hyperparams structure with the following fields
-% .M            number of components
+% .M            number of components (default 1)
 % .normtypeX 	norm for X view 1 = l1 (default) and 2 = l2
 % .normtypeY 	norm for Y view 1 = l1 and 2 = l2 (default)
-% .Cx           the value of the norm constraint on view X
-% .Cy           the value of the norm constraint on view Y
+% .Cx           the value of the norm constraint on view X (default 1)
+% .Cy           the value of the norm constraint on view Y (default 1)
 % .Rep          number of repetitions from random initializations
-% .eps          convergence threshold
+%                   (default 5)
+% .eps          convergence threshold (default 1e-7)
 % .sigma1       the std of the rbf kernel, if empty = median heuristic
 % .sigma2       the std of the rbf kernel, if empty = median heuristic
-% .maxit        maximum iteration limit
+% .maxit        maximum iteration limit (default 500)
 % .flag         print iteration results, 1: yes, 2: only the converged
-%               result
+%               result (default 1)
 
 % Output:
 % U             canonical coefficient vectors for X in the columns of U
@@ -38,44 +39,60 @@ function [U,V,final_obj,tempobj,InterMediate] = scca_hsic(X,Y,hyperparams)
 %--------------------------------------------------------------------------
 %% Set up parameters
 
-M = hyperparams.M;
-normtypeX = hyperparams.normtypeX;
-normtypeY = hyperparams.normtypeY;
-Cx = hyperparams.Cx;
-Cy = hyperparams.Cy;
-Rep = hyperparams.Rep;
-eps = hyperparams.eps;
-sigma1 = hyperparams.sigma1;
-sigma2 = hyperparams.sigma2;
-maxit = hyperparams.maxit;
-flag = hyperparams.flag;
+if ~isempty(varargin)
+    if size(varargin, 2) > 1
+	    error('Check optional inputs.');
+    end
+    hyperparams = varargin{1,1};
+else
+    hyperparams = struct;
+end
+
+% default hyperparameter values
+M = 1;
+normtypeX = 1;
+normtypeY = 2;
+Cx = 1;
+Cy = 1;
+Rep = 5;
+eps = 1e-7;
+sigma1 = [];
+sigma2 = [];
+maxit = 500;
+flag = 1;
+
+params = fields(hyperparams);
+
+for i =1:numel(params)
+    switch params{i}
+        case 'M'
+            M = hyperparams.(params{i});
+        case 'normtypeX'
+            normtypeX = hyperparams.(params{i});
+        case 'normtypeY'
+            normtypeY = hyperparams.(params{i});
+        case 'Cx'
+            Cx = hyperparams.(params{i});
+        case 'Cy'
+            Cy = hyperparams.(params{i});
+        case 'Rep'
+            Rep = hyperparams.(params{i});
+        case 'eps'
+            eps = hyperparams.(params{i});
+        case 'sigma1'
+            sigma1 = hyperparams.(params{i});
+        case 'sigma2'
+            sigma2 = hyperparams.(params{i});
+        case 'maxit'
+            maxit = hyperparams.(params{i});
+        case 'flag'
+            flag = hyperparams.(params{i});
+        otherwise
+            warning('No hyperparameter named %s', params{i})
+    end
+end
 
 rng(5) % fix the random number generator
-
-if ~exist('Rep', 'var') || isempty(Rep)
-    Rep = 10;
-end
-
-if ~exist('eps', 'var') || isempty(eps)
-    eps = 1e-6;
-end
-
-if ~exist('normtypeX', 'var') || isempty(normtypeX)
-    normtypeX = 1; % default l1 norm for X
-end
-
-if ~exist('normtypeY', 'var') || isempty(normtypeY)
-    normtypeY = 2; % default l2 norm for Y
-end
-
-if ~exist('Cx', 'var') || isempty(Cx)
-    Cx = 1; % default regularization constant for X
-end
-
-if ~exist('Cy', 'var') || isempty(Cy)
-    Cy = 1; % default regularization constant for Y
-end
-
 
 % partition into training and validation sets
 [~,indices] = partition(size(X,1), 3);
@@ -93,8 +110,16 @@ if size(Xm,1) ~= size(Ym,1)
     printf('sizes of data matrices are not same');
 end
 
-InterMediate = [];
+U = zeros(size(X,2),M);
+V = zeros(size(Y,2),M);
+obj = zeros(M);
+
 for m=1:M
+
+    candU = zeros(size(X,2),Rep);
+    candV = zeros(size(Y,2),Rep);
+    candObj = zeros(Rep,1);
+
     for rep=1:Rep
         %fprintf('Reps: #%d \n',rep);
         % intialization
@@ -171,8 +196,6 @@ for m=1:M
                 end
             end
             obj = obj_new;
-            InterMediate(m,rep).u(:,ite) = umr;
-            InterMediate(m,rep).obj(2*ite-1) = obj;
             %% line search end
             
             obj_old = obj;
@@ -211,8 +234,6 @@ for m=1:M
                 end
             end
             obj = obj_new;
-            InterMediate(m,rep).v(:,ite) = vmr;
-            InterMediate(m,rep).obj(2*ite) = obj;
             %% line search end
             %% check the value of test objective
             Kxtest = rbf_kernel(Xtest * umr);
@@ -226,26 +247,24 @@ for m=1:M
                 disp(['iter = ',num2str(ite),', objtr = ',num2str(obj),', diff = ', num2str(diff), ', test = ', num2str(test_obj)])
             end
         end
-        InterMediate(m,rep).Result.u = umr;
-        InterMediate(m,rep).Result.v = vmr;
-        InterMediate(m,rep).Result.obj = obj;
-        tempobj(rep) = obj;
+        candU(:,rep) = umr;
+        candV(:,rep) = vmr;
+        candObj(rep) = obj;
         
         if flag == 2
             disp(['Rep ', num2str(rep), ', Objective = ',num2str(obj,2)])
         end
     end
     
-    [~,id] = max(tempobj);
-    U(:,m) = InterMediate(m,id).Result.u;
-    V(:,m) = InterMediate(m,id).Result.v;
-    final_obj(m,1) = max(tempobj);
+    [~,id] = max(candObj);
+    U(:,m) = candU(:,id);
+    V(:,m) = candV(:,id);
+    obj(m) = max(candObj);
     
     % deflated data
     Xm = Xm - (U(:,m)*U(:,m)'*Xm')';
     Ym = Ym - (V(:,m)*V(:,m)'*Ym')';
     
-end
 end
 
 
