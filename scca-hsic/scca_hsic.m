@@ -92,8 +92,6 @@ for i =1:numel(params)
     end
 end
 
-rng(5) % fix the random number generator
-
 % partition into training and validation sets
 [~,indices] = partition(size(X,1), 3);
 train = indices ~= 1;
