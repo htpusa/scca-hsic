@@ -2,7 +2,12 @@ function [U,V,finalObj] = scca_hsic(X,Y,varargin)
 
 % The SCCA-HSIC implementation using the projected stochastic mini-batch
 % gradient ascent.
-
+%
+% USAGE:
+%
+%   [U,V,finalObj] = scca_hsic(X,Y)
+%   [U,V,finalObj] = scca_hsic(X,Y,hyperparams)
+%
 % Input:
 % X             n x dx data matrix
 % Y             n x dy data matrix
@@ -21,22 +26,18 @@ function [U,V,finalObj] = scca_hsic(X,Y,varargin)
 % .maxit        maximum iteration limit (default 500)
 % .flag         print iteration results, 1: yes, 2: only the converged
 %               result (default 1)
-
+%
 % Output:
 % U             canonical coefficient vectors for X in the columns of U
 % V             canonical coefficient vectors for Y in the columns of V
-
-% InterMediate is a structure containing all intermediate results
-% InterMediate(m,rep).u  contains all intermediate u for mth component
-% InterMediate(m,rep).v  contains all intermediate v for mth component
-% InterMEdiate(m,rep).obj contains intermediate objective values
-
-
+% finalObj      objective values
+%
 %--------------------------------------------------------------------------
 % Uurtio, V., Bhadra, S., Rousu, J.
 % Sparse Non-Linear CCA through Hilbert-Schmidt Independence Criterion.
 % IEEE International Conference on Data Mining (ICDM 2018)
 %--------------------------------------------------------------------------
+
 %% Set up parameters
 
 if ~isempty(varargin)
