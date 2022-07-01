@@ -1,4 +1,4 @@
-function [U,V,obj] = scca_hsic(X,Y,varargin)
+function [U,V,finalObj] = scca_hsic(X,Y,varargin)
 
 % The SCCA-HSIC implementation using the projected stochastic mini-batch
 % gradient ascent.
@@ -110,7 +110,7 @@ end
 
 U = zeros(size(X,2),M);
 V = zeros(size(Y,2),M);
-obj = zeros(M);
+finalObj = zeros(M);
 
 for m=1:M
 
@@ -257,7 +257,7 @@ for m=1:M
     [~,id] = max(candObj);
     U(:,m) = candU(:,id);
     V(:,m) = candV(:,id);
-    obj(m) = max(candObj);
+    finalObj(m) = max(candObj);
     
     % deflated data
     Xm = Xm - (U(:,m)*U(:,m)'*Xm')';
