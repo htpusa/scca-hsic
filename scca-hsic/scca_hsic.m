@@ -25,7 +25,7 @@ function [U,V,finalObj] = scca_hsic(X,Y,varargin)
 % .sigma2       the std of the rbf kernel, if empty = median heuristic
 % .maxit        maximum iteration limit (default 500)
 % .flag         print iteration results, 1: yes, 2: only the converged
-%               result (default 1)
+%               result (default 2)
 %
 % Output:
 % U             canonical coefficient vectors for X in the columns of U
@@ -60,7 +60,7 @@ eps = 1e-7;
 sigma1 = [];
 sigma2 = [];
 maxit = 500;
-flag = 1;
+flag = 2;
 
 params = fields(hyperparams);
 
